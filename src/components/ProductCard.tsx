@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Carrot, Droplets, Beef, Sprout, Tag, Users, Locate, Timer, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
+import Image from 'next/image';
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
   Vegetable: <Carrot className="h-4 w-4" />,
@@ -24,7 +25,15 @@ export function ProductCard({ product }: { product: Product }) {
   const timeLeft = !isFulfilled && !isExpired ? formatDistanceToNow(timeLimitDate, { addSuffix: true }) : 'Ended';
 
   return (
-    <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300">
+    <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300 overflow-hidden">
+      <div className="relative h-48 w-full">
+         <Image
+            src={product.imageUrl || 'https://placehold.co/600x400.png'}
+            alt={product.name}
+            fill
+            className="object-cover"
+        />
+      </div>
       <CardHeader>
         <div className="flex justify-between items-start">
             <div>

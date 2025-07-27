@@ -1,6 +1,7 @@
 import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Product, VendorContribution } from './types';
+import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 
 // Helper function to convert Firestore doc to Product
 const toProduct = (doc: any): Product => {
@@ -31,11 +32,15 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
 };
 
 export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions'>): Promise<Product> => {
+    
+    const imageUrl = await generateProductImage({productName: product.name});
+
     const docRef = await addDoc(collection(db, 'products'), {
         ...product,
         timeLimit: Timestamp.fromDate(product.timeLimit as any), // Convert JS Date to Firestore Timestamp
         currentQuantity: 0,
         contributions: [],
+        imageUrl: imageUrl,
     });
 
     return {
@@ -43,6 +48,7 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
         id: docRef.id,
         currentQuantity: 0,
         contributions: [],
+        imageUrl: imageUrl,
     };
 };
 

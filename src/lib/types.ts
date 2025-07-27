@@ -17,6 +17,7 @@ export interface Product {
   timeLimit: Timestamp | string; // Allow string for client-side
   location?: string;
   contributions: VendorContribution[];
+  imageUrl?: string;
 }
 
 export interface User {

@@ -17,6 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import { addContribution, getProductById } from '@/lib/data';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
   Vegetable: <Carrot className="h-5 w-5" />,
@@ -179,6 +180,14 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-6">
         <Card className="overflow-hidden">
+           <div className="relative h-64 w-full">
+            <Image
+                src={product.imageUrl || 'https://placehold.co/600x400.png'}
+                alt={product.name}
+                fill
+                className="object-cover"
+            />
+           </div>
           <CardHeader>
              <div className="flex justify-between items-start">
                 <div className="flex items-center gap-4">
