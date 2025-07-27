@@ -37,10 +37,19 @@ import { useState } from "react";
 const formSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters."),
   category: z.string({required_error: "Please select a category."}),
+  otherCategory: z.string().optional(),
   unitPrice: z.coerce.number().positive("Price must be a positive number."),
   minBulkQuantity: z.coerce.number().int().positive("Quantity must be a positive whole number."),
   timeLimit: z.date({required_error: "A closing date is required."}),
   location: z.string().optional(),
+}).refine(data => {
+    if (data.category === 'Other') {
+        return !!data.otherCategory && data.otherCategory.length > 2;
+    }
+    return true;
+}, {
+    message: "Custom category must be at least 3 characters.",
+    path: ["otherCategory"],
 });
 
 export function CreateProductForm() {
@@ -48,6 +57,7 @@ export function CreateProductForm() {
   const router = useRouter();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showOtherCategory, setShowOtherCategory] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -56,6 +66,7 @@ export function CreateProductForm() {
       unitPrice: 0,
       minBulkQuantity: 0,
       location: "",
+      otherCategory: "",
     },
   });
 
@@ -66,8 +77,15 @@ export function CreateProductForm() {
     }
     setIsSubmitting(true);
     try {
+      const category = values.category === 'Other' ? values.otherCategory! : values.category;
+      
       const newProductData = {
-          ...values,
+          name: values.name,
+          category: category,
+          unitPrice: values.unitPrice,
+          minBulkQuantity: values.minBulkQuantity,
+          timeLimit: values.timeLimit,
+          location: values.location,
           supplierName: user.name, // Use logged in user's name
       }
       const newProduct = await addProduct(newProductData);
@@ -114,7 +132,10 @@ export function CreateProductForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(value) => {
+                      field.onChange(value);
+                      setShowOtherCategory(value === 'Other');
+                  }} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a product category" />
@@ -125,12 +146,28 @@ export function CreateProductForm() {
                       <SelectItem value="Meat">Meat</SelectItem>
                       <SelectItem value="Pantry">Pantry</SelectItem>
                       <SelectItem value="Dairy">Dairy</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {showOtherCategory && (
+                 <FormField
+                  control={form.control}
+                  name="otherCategory"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Custom Category Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Spices" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <FormField
                   control={form.control}
