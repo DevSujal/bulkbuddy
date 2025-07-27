@@ -15,11 +15,12 @@ const categoryIcons: { [key: string]: React.ReactNode } = {
 };
 
 export function ProductCard({ product }: { product: Product }) {
+  const timeLimitDate = (product.timeLimit as any).toDate();
   const progress = Math.min((product.currentQuantity / product.minBulkQuantity) * 100, 100);
   const isFulfilled = progress >= 100;
-  const isExpired = new Date() > product.timeLimit;
+  const isExpired = new Date() > timeLimitDate;
   
-  const timeLeft = !isFulfilled && !isExpired ? formatDistanceToNow(product.timeLimit, { addSuffix: true }) : 'Ended';
+  const timeLeft = !isFulfilled && !isExpired ? formatDistanceToNow(timeLimitDate, { addSuffix: true }) : 'Ended';
 
   return (
     <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300">

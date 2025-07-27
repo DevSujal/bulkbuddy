@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
+import { useState } from "react";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
@@ -25,6 +26,7 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { login } = useAuth();
@@ -37,30 +39,23 @@ export function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     try {
-      // This is a mock login. In a real app, you'd call your backend.
-      // We'll just log the user in with a dummy user object.
-      // The role will be determined by the email for this mock.
-      const role = values.email.includes('supplier') ? 'supplier' : 'vendor';
-      
-      login({
-        name: values.email.split('@')[0],
-        email: values.email,
-        role: role
-      });
-
+      await login(values);
       toast({
         title: "Login Successful!",
         description: "Welcome back!",
       });
       router.push('/');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Invalid credentials. Please try again.",
+        description: error.message || "Invalid credentials. Please try again.",
         variant: "destructive",
       });
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
@@ -97,8 +92,8 @@ export function LoginForm() {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Logging in..." : "Log In"}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Logging in..." : "Log In"}
             </Button>
             <p className="text-sm text-muted-foreground">
                 Don't have an account?{' '}

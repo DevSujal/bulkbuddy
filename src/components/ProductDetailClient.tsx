@@ -11,10 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
+import { addContribution, getProductById } from '@/lib/data';
+import { useRouter } from 'next/navigation';
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
   Vegetable: <Carrot className="h-5 w-5" />,
@@ -29,17 +31,20 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { user } = useAuth();
+  const router = useRouter();
+
+  const timeLimitDate = (product.timeLimit as any).toDate();
   
-  const hasJoined = user ? product.contributions.some(c => c.vendorId === user.email) : false;
+  const hasJoined = user ? product.contributions.some(c => c.vendorId === user.uid) : false;
 
   const progress = Math.min((product.currentQuantity / product.minBulkQuantity) * 100, 100);
   const isFulfilled = progress >= 100;
-  const isExpired = new Date() > product.timeLimit;
+  const isExpired = new Date() > timeLimitDate;
   const canJoin = user && user.role === 'vendor' && !isFulfilled && !isExpired && !hasJoined;
 
-  const timeLeft = !isFulfilled && !isExpired ? formatDistanceToNow(product.timeLimit, { addSuffix: true }) : 'Ended';
+  const timeLeft = !isFulfilled && !isExpired ? formatDistanceToNow(timeLimitDate, { addSuffix: true }) : 'Ended';
 
-  const handleJoinOrder = (e: React.FormEvent) => {
+  const handleJoinOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
@@ -53,23 +58,31 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
         return;
     }
 
-    startTransition(() => {
-        const newContribution: VendorContribution = {
-            vendorId: user.email,
-            vendorName: user.name,
-            quantity,
-        };
-        const updatedProduct = {
-            ...product,
-            currentQuantity: product.currentQuantity + quantity,
-            contributions: [...product.contributions, newContribution],
-        };
-        setProduct(updatedProduct);
-        setContribution('');
-        toast({
-            title: 'Success!',
-            description: `You've joined the group buy for ${quantity}kg of ${product.name}.`,
-        });
+    startTransition(async () => {
+        try {
+            const newContribution: VendorContribution = {
+                vendorId: user.uid,
+                vendorName: user.name,
+                quantity,
+            };
+
+            await addContribution(product.id, newContribution);
+
+            // Fetch the updated product data to reflect changes
+            const updatedProduct = await getProductById(product.id);
+            if(updatedProduct) {
+                setProduct(updatedProduct);
+            }
+
+            setContribution('');
+            toast({
+                title: 'Success!',
+                description: `You've joined the group buy for ${quantity}kg of ${product.name}.`,
+            });
+            router.refresh();
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to join order. Please try again.', variant: 'destructive' });
+        }
     });
   };
 

@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 export interface VendorContribution {
   vendorId: string;
   vendorName: string;
@@ -12,12 +14,13 @@ export interface Product {
   unitPrice: number;
   minBulkQuantity: number;
   currentQuantity: number;
-  timeLimit: Date;
+  timeLimit: Timestamp;
   location?: string;
   contributions: VendorContribution[];
 }
 
 export interface User {
+  uid: string;
   name: string;
   email: string;
   role: 'vendor' | 'supplier';

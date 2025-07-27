@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -34,9 +35,10 @@ const formSchema = z.object({
 });
 
 export function SignupForm() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { login } = useAuth();
+  const { signup } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,25 +49,23 @@ export function SignupForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     try {
-       // This is a mock signup. In a real app, you'd call your backend.
-      login({
-        name: values.name,
-        email: values.email,
-        role: values.role
-      });
+      await signup(values);
       toast({
         title: "Account Created!",
         description: "You have been successfully signed up.",
       });
       router.push("/");
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Something went wrong. Please try again.",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
@@ -136,8 +136,8 @@ export function SignupForm() {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Creating account..." : "Create Account"}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Creating account..." : "Create Account"}
             </Button>
             <p className="text-sm text-muted-foreground">
                 Already have an account?{' '}

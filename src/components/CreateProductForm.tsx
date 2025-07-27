@@ -30,11 +30,11 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "./ui/calendar";
+import { useAuth } from "@/context/AuthContext";
 
 const formSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters."),
   category: z.string({required_error: "Please select a category."}),
-  supplierName: z.string().min(2, "Supplier name is required."),
   unitPrice: z.coerce.number().positive("Price must be a positive number."),
   minBulkQuantity: z.coerce.number().int().positive("Quantity must be a positive whole number."),
   timeLimit: z.date({required_error: "A closing date is required."}),
@@ -44,19 +44,27 @@ const formSchema = z.object({
 export function CreateProductForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      supplierName: "",
       location: "",
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!user) {
+        toast({ title: "Error", description: "You must be logged in to create a product.", variant: "destructive" });
+        return;
+    }
     try {
-      const newProduct = addProduct(values);
+      const newProductData = {
+          ...values,
+          supplierName: user.name, // Use logged in user's name
+      }
+      const newProduct = await addProduct(newProductData);
       toast({
         title: "Success!",
         description: "Your product listing has been created.",
@@ -111,19 +119,6 @@ export function CreateProductForm() {
                       <SelectItem value="Dairy">Dairy</SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="supplierName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Supplier Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Green Farms" {...field} />
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

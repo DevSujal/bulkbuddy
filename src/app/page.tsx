@@ -1,10 +1,38 @@
+
 import { ProductCard } from '@/components/ProductCard';
 import { getProducts } from '@/lib/data';
 import type { Product } from '@/lib/types';
+import { Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+async function ProductList() {
+    const products: Product[] = await getProducts();
+    return (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+            ))}
+        </div>
+    )
+}
+
+function ProductListSkeleton() {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[...Array(3)].map((_, i) => (
+                <div key={i} className="space-y-4">
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-10 w-full" />
+                </div>
+            ))}
+        </div>
+    )
+}
+
 
 export default function Home() {
-  const products: Product[] = getProducts();
-
   return (
     <div className="space-y-8">
       <div className="text-center">
@@ -15,18 +43,9 @@ export default function Home() {
           Join a group buy to get the best prices on raw materials.
         </p>
       </div>
-      {products.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16 border-2 border-dashed rounded-lg">
-            <h3 className="text-xl font-semibold">No active orders</h3>
-            <p className="text-muted-foreground mt-2">Check back later or create a new listing!</p>
-        </div>
-      )}
+      <Suspense fallback={<ProductListSkeleton />}>
+        <ProductList />
+      </Suspense>
     </div>
   );
 }

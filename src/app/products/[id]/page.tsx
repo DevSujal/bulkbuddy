@@ -1,3 +1,4 @@
+
 import { getProductById } from '@/lib/data';
 import { ProductDetailClient } from '@/components/ProductDetailClient';
 import { notFound } from 'next/navigation';
@@ -11,8 +12,8 @@ type ProductPageProps = {
   };
 };
 
-export default function ProductPage({ params }: ProductPageProps) {
-  const product = getProductById(params.id);
+export default async function ProductPage({ params }: ProductPageProps) {
+  const product = await getProductById(params.id);
 
   if (!product) {
     notFound();

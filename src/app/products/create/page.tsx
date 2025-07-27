@@ -5,34 +5,47 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CreateProductPage() {
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (user && user.role !== 'supplier') {
-            router.push('/');
+        if (!loading) {
+            if (!user) {
+                router.push('/login');
+            } else if (user.role !== 'supplier') {
+                router.push('/');
+            }
         }
-        if (!user) {
-            router.push('/login');
-        }
-    }, [user, router]);
+    }, [user, loading, router]);
 
-    if (!user || user.role !== 'supplier') {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Card className="p-8">
-                    <CardContent className="flex flex-col items-center gap-4 text-center">
-                        <AlertTriangle className="h-12 w-12 text-destructive" />
-                        <h2 className="text-2xl font-bold">Access Denied</h2>
-                        <p className="text-muted-foreground">
-                            You must be a supplier to create a new listing.
-                        </p>
-                    </CardContent>
-                </Card>
+    if (loading) {
+      return (
+        <div className="max-w-2xl mx-auto">
+             <div className="text-center mb-8">
+                <Skeleton className="h-10 w-3/4 mx-auto" />
+                <Skeleton className="h-6 w-1/2 mx-auto mt-2" />
             </div>
-        )
+            <Card>
+                <CardContent className="pt-6 space-y-6">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <div className="grid grid-cols-2 gap-6">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+      )
+    }
+    
+    if (!user || user.role !== 'supplier') {
+        return null;
     }
 
     return (
