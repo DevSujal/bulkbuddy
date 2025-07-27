@@ -6,13 +6,13 @@ import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  "projectId": "bulkbuddy-l9vnc",
-  "appId": "1:388486740606:web:697b509f416fccea28b62f",
-  "storageBucket": "bulkbuddy-l9vnc.firebasestorage.app",
-  "apiKey": "AIzaSyAkm3metOeJbX08cWm3_92wC4Lp9L7Pf9Y",
-  "authDomain": "bulkbuddy-l9vnc.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "388486740606"
+  "projectId": process.env.NEXT_PUBLIC_PROJECTID,
+  "appId": process.env.NEXT_PUBLIC_APPID,
+  "storageBucket": process.env.NEXT_PUBLIC_STORAGE_BUCKET,
+  "apiKey": process.env.NEXT_PUBLIC_APIKEY,
+  "authDomain": process.env.NEXT_PUBLIC_AUTH_DOMAIN,
+  "measurementId": process.env.NEXT_PUBLIC_MEASUREMENTID,
+  "messagingSenderId": process.env.NEXT_PUBLIC_MESSAGING_SENDERID
 };
 
 // Initialize Firebase for SSR
