@@ -2,6 +2,7 @@ import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timest
 import { db } from './firebase';
 import type { Product, VendorContribution } from './types';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
+import { generateProductDescription } from '@/ai/flows/generate-product-description-flow';
 
 // Helper function to convert Firestore doc to Product
 const toProduct = (doc: any): Product => {
@@ -31,9 +32,12 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
     }
 };
 
-export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions'>): Promise<Product> => {
+export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions' | 'description' | 'imageUrl'>): Promise<Product> => {
     
-    const imageUrl = await generateProductImage({productName: product.name});
+    const [imageUrl, description] = await Promise.all([
+        generateProductImage({productName: product.name}),
+        generateProductDescription({productName: product.name})
+    ]);
 
     const docRef = await addDoc(collection(db, 'products'), {
         ...product,
@@ -41,6 +45,7 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
         currentQuantity: 0,
         contributions: [],
         imageUrl: imageUrl,
+        description: description,
     });
 
     return {
@@ -49,6 +54,7 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
         currentQuantity: 0,
         contributions: [],
         imageUrl: imageUrl,
+        description: description,
     };
 };
 

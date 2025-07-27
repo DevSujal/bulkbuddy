@@ -203,6 +203,11 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+             {product.description && (
+                <p className="text-lg text-muted-foreground italic">
+                  "{product.description}"
+                </p>
+             )}
              <div className="text-sm text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="flex items-center gap-2"><Tag className="h-4 w-4 shrink-0 text-primary"/><div><p className="font-bold text-foreground">${product.unitPrice.toFixed(2)}</p><p>per kg</p></div></div>
                 <div className="flex items-center gap-2"><Users className="h-4 w-4 shrink-0 text-primary"/><div><p className="font-bold text-foreground">{product.contributions.length}</p><p>Vendors</p></div></div>
@@ -225,7 +230,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             <CardHeader><CardTitle>Vendor Contributions</CardTitle></CardHeader>
             <CardContent>
                 {product.contributions.length > 0 ? (
-                    <ul className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    <ul className="space-y-3 max-h-60 overflow-y--auto pr-2">
                         {product.contributions.map((c) => (
                             <li key={c.vendorId} className="flex justify-between items-center text-sm">
                                 <div className="flex items-center gap-2">
