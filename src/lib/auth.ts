@@ -5,6 +5,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import type { User } from './types';
 
 export const signup = async (data: Omit<User, 'uid'>) => {
+  console.log("running");
   const { email, password, name, role } = data as any;
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;

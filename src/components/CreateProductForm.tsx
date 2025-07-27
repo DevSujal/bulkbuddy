@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -50,6 +51,10 @@ export function CreateProductForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      category: undefined,
+      unitPrice: 0,
+      minBulkQuantity: 0,
+      timeLimit: undefined,
       location: "",
     },
   });
@@ -199,7 +204,7 @@ export function CreateProductForm() {
                 <FormItem>
                   <FormLabel>Delivery/Pickup Location (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Warehouse A, Springfield" {...field} />
+                    <Input placeholder="e.g., Warehouse A, Springfield" {...field} value={field.value ?? ''}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
