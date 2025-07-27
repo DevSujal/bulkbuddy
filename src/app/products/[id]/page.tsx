@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { Product } from '@/lib/types';
 
 type ProductPageProps = {
   params: {
@@ -13,11 +14,17 @@ type ProductPageProps = {
 };
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const product = await getProductById(params.id);
+  const productData = await getProductById(params.id);
 
-  if (!product) {
+  if (!productData) {
     notFound();
   }
+
+  // Convert Timestamp to a serializable format (ISO string)
+  const product: Product = {
+    ...productData,
+    timeLimit: (productData.timeLimit as any).toDate().toISOString(),
+  };
 
   return (
     <div>

@@ -14,7 +14,7 @@ export interface Product {
   unitPrice: number;
   minBulkQuantity: number;
   currentQuantity: number;
-  timeLimit: Timestamp;
+  timeLimit: Timestamp | string; // Allow string for client-side
   location?: string;
   contributions: VendorContribution[];
 }

@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Carrot, Droplets, Beef, Sprout, Tag, Users, Locate, Timer, CheckCircle2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
   Vegetable: <Carrot className="h-4 w-4" />,
@@ -15,7 +16,7 @@ const categoryIcons: { [key: string]: React.ReactNode } = {
 };
 
 export function ProductCard({ product }: { product: Product }) {
-  const timeLimitDate = (product.timeLimit as any).toDate();
+  const timeLimitDate = product.timeLimit instanceof Timestamp ? product.timeLimit.toDate() : new Date(product.timeLimit);
   const progress = Math.min((product.currentQuantity / product.minBulkQuantity) * 100, 100);
   const isFulfilled = progress >= 100;
   const isExpired = new Date() > timeLimitDate;

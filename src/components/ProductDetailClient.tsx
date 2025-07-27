@@ -33,7 +33,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
   const { user } = useAuth();
   const router = useRouter();
 
-  const timeLimitDate = (product.timeLimit as any).toDate();
+  const timeLimitDate = new Date(product.timeLimit);
   
   const hasJoined = user ? product.contributions.some(c => c.vendorId === user.uid) : false;
 
@@ -69,8 +69,12 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             await addContribution(product.id, newContribution);
 
             // Fetch the updated product data to reflect changes
-            const updatedProduct = await getProductById(product.id);
-            if(updatedProduct) {
+            const updatedProductData = await getProductById(product.id);
+            if(updatedProductData) {
+                const updatedProduct: Product = {
+                    ...updatedProductData,
+                    timeLimit: (updatedProductData.timeLimit as any).toDate().toISOString(),
+                };
                 setProduct(updatedProduct);
             }
 
