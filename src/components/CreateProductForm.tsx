@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "./ui/calendar";
 import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 const formSchema = z.object({
   name: z.string().min(3, "Product name must be at least 3 characters."),
@@ -46,15 +47,14 @@ export function CreateProductForm() {
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      category: undefined,
       unitPrice: 0,
       minBulkQuantity: 0,
-      timeLimit: undefined,
       location: "",
     },
   });
@@ -64,6 +64,7 @@ export function CreateProductForm() {
         toast({ title: "Error", description: "You must be logged in to create a product.", variant: "destructive" });
         return;
     }
+    setIsSubmitting(true);
     try {
       const newProductData = {
           ...values,
@@ -81,6 +82,8 @@ export function CreateProductForm() {
         description: "Something went wrong. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -212,8 +215,8 @@ export function CreateProductForm() {
             />
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Creating..." : "Create Listing"}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Listing"}
             </Button>
           </CardFooter>
         </form>
