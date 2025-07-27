@@ -4,6 +4,12 @@ BulkBuddy is a web application designed to connect raw material suppliers with s
 
 ![BulkBuddy Screenshot](image.png)
 *A placeholder image of the application interface.*
+## 🌟 Live Demo
+
+Experience BulkBuddy in action:  
+[https://bulkbuddy-ten.vercel.app/](https://bulkbuddy-ten.vercel.app/)
+
+> **Note:** This is a hosted preview. Some features may be limited or use test data.
 
 ## ✨ Features
 
