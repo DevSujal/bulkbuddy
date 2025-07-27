@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { Product } from '@/lib/types';
+import { Timestamp } from 'firebase/firestore';
 
 type ProductPageProps = {
   params: {
@@ -18,12 +19,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   if (!productData) {
     notFound();
+    return; // Stop execution if product not found
   }
 
   // Convert Timestamp to a serializable format (ISO string)
   const product: Product = {
     ...productData,
-    timeLimit: (productData.timeLimit as any).toDate().toISOString(),
+    timeLimit: (productData.timeLimit as Timestamp).toDate().toISOString(),
   };
 
   return (
