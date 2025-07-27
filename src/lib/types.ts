@@ -16,3 +16,9 @@ export interface Product {
   location?: string;
   contributions: VendorContribution[];
 }
+
+export interface User {
+  name: string;
+  email: string;
+  role: 'vendor' | 'supplier';
+}

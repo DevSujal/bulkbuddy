@@ -10,9 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle } from 'lucide-react';
+import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
   Vegetable: <Carrot className="h-5 w-5" />,
@@ -24,25 +26,24 @@ const categoryIcons: { [key: string]: React.ReactNode } = {
 export function ProductDetailClient({ product: initialProduct }: { product: Product }) {
   const [product, setProduct] = useState<Product>(initialProduct);
   const [contribution, setContribution] = useState('');
-  const [vendorName, setVendorName] = useState('');
-  const [hasJoined, setHasJoined] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const hasJoined = user ? product.contributions.some(c => c.vendorId === user.email) : false;
 
   const progress = Math.min((product.currentQuantity / product.minBulkQuantity) * 100, 100);
   const isFulfilled = progress >= 100;
   const isExpired = new Date() > product.timeLimit;
-  const canJoin = !isFulfilled && !isExpired && !hasJoined;
+  const canJoin = user && user.role === 'vendor' && !isFulfilled && !isExpired && !hasJoined;
 
   const timeLeft = !isFulfilled && !isExpired ? formatDistanceToNow(product.timeLimit, { addSuffix: true }) : 'Ended';
 
   const handleJoinOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+
     const quantity = parseInt(contribution, 10);
-    if (!vendorName.trim()) {
-        toast({ title: 'Error', description: 'Please enter your restaurant or company name.', variant: 'destructive' });
-        return;
-    }
     if (isNaN(quantity) || quantity <= 0) {
         toast({ title: 'Error', description: 'Please enter a valid quantity.', variant: 'destructive' });
         return;
@@ -54,8 +55,8 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
 
     startTransition(() => {
         const newContribution: VendorContribution = {
-            vendorId: `vend-${Date.now()}`,
-            vendorName,
+            vendorId: user.email,
+            vendorName: user.name,
             quantity,
         };
         const updatedProduct = {
@@ -64,13 +65,97 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             contributions: [...product.contributions, newContribution],
         };
         setProduct(updatedProduct);
-        setHasJoined(true);
         setContribution('');
         toast({
             title: 'Success!',
             description: `You've joined the group buy for ${quantity}kg of ${product.name}.`,
         });
     });
+  };
+
+  const renderJoinCardContent = () => {
+    if (isFulfilled) {
+      return (
+        <Alert className="bg-green-50 border-green-200 text-green-800">
+          <CheckCircle2 className="h-4 w-4 !text-green-600" />
+          <AlertTitle>Order Fulfilled!</AlertTitle>
+          <AlertDescription>
+            The minimum quantity has been reached. The supplier will process the order soon.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    if (isExpired) {
+      return (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Order Expired</AlertTitle>
+          <AlertDescription>
+            This group order did not meet its goal in time.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    if (!user) {
+        return (
+            <Alert>
+                <LogIn className="h-4 w-4" />
+                <AlertTitle>You are not logged in</AlertTitle>
+                <AlertDescription>
+                    Please <Link href="/login" className="font-bold hover:underline">log in</Link> or <Link href="/signup" className="font-bold hover:underline">sign up</Link> to join this order.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+    if (user.role === 'supplier') {
+        return (
+             <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Suppliers cannot join orders</AlertTitle>
+                <AlertDescription>
+                    Your account type is 'Supplier'. Only vendors can contribute to orders.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+    if (hasJoined) {
+      return (
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertTitle>Thanks for your contribution!</AlertTitle>
+          <AlertDescription>
+            You're part of this group order. We'll notify you upon fulfillment.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    return (
+      <form onSubmit={handleJoinOrder} className="space-y-4">
+        <div>
+          <Label htmlFor="vendorName">Your Name</Label>
+          <Input 
+            id="vendorName"
+            value={user.name}
+            disabled={true}
+          />
+        </div>
+        <div>
+          <Label htmlFor="quantity">Quantity you need (kg)</Label>
+          <Input
+            id="quantity"
+            type="number"
+            value={contribution}
+            onChange={(e) => setContribution(e.target.value)}
+            placeholder="e.g., 50"
+            min="1"
+            disabled={!canJoin || isPending}
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={!canJoin || isPending}>
+          {isPending ? 'Joining...' : 'Contribute and Join'}
+        </Button>
+      </form>
+    );
   };
 
   return (
@@ -141,59 +226,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             <CardTitle className="font-headline">Join this Group Order</CardTitle>
           </CardHeader>
           <CardContent>
-            {isFulfilled ? (
-                <Alert className="bg-green-50 border-green-200 text-green-800">
-                    <CheckCircle2 className="h-4 w-4 !text-green-600" />
-                    <AlertTitle>Order Fulfilled!</AlertTitle>
-                    <AlertDescription>
-                        The minimum quantity has been reached. The supplier will process the order soon.
-                    </AlertDescription>
-                </Alert>
-            ) : isExpired ? (
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Order Expired</AlertTitle>
-                    <AlertDescription>
-                        This group order did not meet its goal in time.
-                    </AlertDescription>
-                </Alert>
-            ) : hasJoined ? (
-                 <Alert>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertTitle>Thanks for your contribution!</AlertTitle>
-                    <AlertDescription>
-                        You're part of this group order. We'll notify you upon fulfillment.
-                    </AlertDescription>
-                </Alert>
-            ) : (
-              <form onSubmit={handleJoinOrder} className="space-y-4">
-                <div>
-                  <Label htmlFor="vendorName">Your Restaurant/Company Name</Label>
-                  <Input 
-                    id="vendorName"
-                    value={vendorName}
-                    onChange={(e) => setVendorName(e.target.value)}
-                    placeholder="e.g., The Corner Cafe"
-                    disabled={!canJoin || isPending}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="quantity">Quantity you need (kg)</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={contribution}
-                    onChange={(e) => setContribution(e.target.value)}
-                    placeholder="e.g., 50"
-                    min="1"
-                    disabled={!canJoin || isPending}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={!canJoin || isPending}>
-                  {isPending ? 'Joining...' : 'Contribute and Join'}
-                </Button>
-              </form>
-            )}
+            {renderJoinCardContent()}
           </CardContent>
         </Card>
       </div>
