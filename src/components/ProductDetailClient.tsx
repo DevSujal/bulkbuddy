@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Product, ProductStatus, VendorContribution } from '@/lib/types';
+import type { Product, ProductStatus, VendorContribution, Review } from '@/lib/types';
 import { useState, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -11,12 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn, Truck, XCircle, Edit, Trash2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn, Truck, XCircle, Edit, Trash2, Star, MessageSquare } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-import { addContribution, getProductById, updateProductStatus, deleteProduct } from '@/lib/data';
+import { addContribution, getProductById, updateProductStatus, deleteProduct, addReview } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Textarea } from './ui/textarea';
 
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
@@ -47,6 +48,81 @@ const statusInfo: { [key: string]: { icon: React.ReactNode; text: string; classN
     Shipped: { icon: <Truck className="h-4 w-4" />, text: 'Shipped', className: 'bg-purple-100 text-purple-800' },
     Cancelled: { icon: <XCircle className="h-4 w-4" />, text: 'Cancelled', className: 'bg-red-100 text-red-800' },
 };
+
+function ReviewForm({ product, onReviewAdded }: { product: Product, onReviewAdded: (newReview: Review) => void }) {
+    const { user } = useAuth();
+    const [rating, setRating] = useState(0);
+    const [hoverRating, setHoverRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+
+    if (!user) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (rating === 0) {
+            toast({ title: 'Error', description: 'Please select a star rating.', variant: 'destructive' });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const newReviewData = {
+                vendorId: user.uid,
+                vendorName: user.name,
+                rating,
+                comment,
+            };
+            await addReview(product.id, product.supplierId, newReviewData);
+            onReviewAdded({ ...newReviewData, id: 'temp', createdAt: new Date() } as any);
+            toast({ title: 'Success', description: 'Your review has been submitted.' });
+            setRating(0);
+            setComment('');
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to submit review. Please try again.', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <Label>Your Rating</Label>
+                <div className="flex items-center gap-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                            key={star}
+                            className={cn(
+                                'h-6 w-6 cursor-pointer transition-colors',
+                                (hoverRating >= star || rating >= star)
+                                    ? 'text-yellow-400 fill-yellow-400'
+                                    : 'text-gray-300'
+                            )}
+                            onMouseEnter={() => setHoverRating(star)}
+                            onMouseLeave={() => setHoverRating(0)}
+                            onClick={() => setRating(star)}
+                        />
+                    ))}
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="comment">Your Review (Optional)</Label>
+                <Textarea
+                    id="comment"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Tell others about your experience..."
+                    disabled={isSubmitting}
+                />
+            </div>
+            <Button type="submit" disabled={isSubmitting || rating === 0}>
+                {isSubmitting ? 'Submitting...' : 'Submit Review'}
+            </Button>
+        </form>
+    );
+}
+
 
 function SupplierActions({ product, onStatusChange }: { product: Product; onStatusChange: (newStatus: ProductStatus) => void; }) {
     const [selectedStatus, setSelectedStatus] = useState<ProductStatus>(product.status);
@@ -154,12 +230,15 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
 
   const timeLimitDate = new Date(product.timeLimit);
   
-  const hasJoined = user ? product.contributions.some(c => c.vendorId === user.uid) : false;
+  const hasContributed = user ? product.contributions.some(c => c.vendorId === user.uid) : false;
+  const hasReviewed = user ? product.reviews.some(r => r.vendorId === user.uid) : false;
 
   const progress = Math.min((product.currentQuantity / product.minBulkQuantity) * 100, 100);
   const goalReached = product.currentQuantity >= product.minBulkQuantity;
   const isExpired = new Date() > timeLimitDate;
-  const canJoin = user && user.role === 'vendor' && product.status === 'Active' && !isExpired && !hasJoined;
+  const canJoin = user && user.role === 'vendor' && product.status === 'Active' && !isExpired && !hasContributed;
+  const canReview = user && user.role === 'vendor' && hasContributed && !hasReviewed && (product.status === 'Fulfilled' || product.status === 'Shipped');
+
 
   const timeLeft = product.status === 'Active' && !isExpired ? formatDistanceToNow(timeLimitDate, { addSuffix: true }) : 'Ended';
   
@@ -175,7 +254,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
         toast({ title: 'Error', description: 'Please enter a valid quantity.', variant: 'destructive' });
         return;
     }
-    if (hasJoined) {
+    if (hasContributed) {
         toast({ title: 'Error', description: 'You have already joined this group order.', variant: 'destructive' });
         return;
     }
@@ -217,6 +296,20 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
     router.refresh();
   };
 
+   const handleReviewAdded = (newReview: Review) => {
+        setProduct(prev => {
+            const updatedReviews = [...prev.reviews, newReview];
+            const newReviewCount = updatedReviews.length;
+            const newAverageRating = updatedReviews.reduce((sum, r) => sum + r.rating, 0) / newReviewCount;
+            return {
+                ...prev,
+                reviews: updatedReviews,
+                reviewCount: newReviewCount,
+                averageRating: newAverageRating
+            };
+        });
+        router.refresh();
+    };
 
   const renderJoinCardContent = () => {
     if (product.status === 'Fulfilled') {
@@ -274,7 +367,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             </Alert>
         );
     }
-    if (hasJoined) {
+    if (hasContributed) {
       return (
         <Alert>
           <CheckCircle2 className="h-4 w-4" />
@@ -367,6 +460,45 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
               <Progress value={progress} className="h-4" />
             </div>
           </CardContent>
+        </Card>
+        
+        <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Star className="h-5 w-5"/> Reviews ({product.reviewCount || 0})</CardTitle></CardHeader>
+            <CardContent>
+                {canReview && (
+                    <>
+                        <ReviewForm product={product} onReviewAdded={handleReviewAdded} />
+                        <Separator className="my-6" />
+                    </>
+                )}
+                {product.reviews.length > 0 ? (
+                    <ul className="space-y-6">
+                       {product.reviews.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis()).map((review) => (
+                           <li key={review.id} className="flex gap-4">
+                               <User className="h-8 w-8 text-muted-foreground mt-1" />
+                               <div className="flex-1">
+                                   <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold">{review.vendorName}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {format(review.createdAt.toDate(), "PPP")}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-0.5">
+                                            {[...Array(5)].map((_, i) => (
+                                                <Star key={i} className={cn("h-4 w-4", i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300')} />
+                                            ))}
+                                        </div>
+                                   </div>
+                                    {review.comment && <p className="mt-2 text-sm text-foreground/80">{review.comment}</p>}
+                               </div>
+                           </li>
+                       ))}
+                    </ul>
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">This product has no reviews yet.</p>
+                )}
+            </CardContent>
         </Card>
         
         <Card>

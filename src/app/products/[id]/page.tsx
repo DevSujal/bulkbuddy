@@ -28,6 +28,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
     timeLimit: productData.timeLimit instanceof Timestamp 
         ? productData.timeLimit.toDate().toISOString()
         : productData.timeLimit,
+    reviews: productData.reviews.map(review => ({
+        ...review,
+        createdAt: review.createdAt instanceof Timestamp ? review.createdAt.toDate().toISOString() : review.createdAt
+    })) as any,
   };
 
   return (

@@ -1,10 +1,11 @@
+
 import type { Product } from '@/lib/types';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Carrot, Droplets, Beef, Sprout, Tag, Users, Locate, Timer, CheckCircle2, Package, XCircle, Truck } from 'lucide-react';
+import { Carrot, Droplets, Beef, Sprout, Tag, Users, Locate, Timer, CheckCircle2, Package, XCircle, Truck, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import Image from 'next/image';
@@ -23,6 +24,19 @@ const statusInfo: { [key: string]: { icon: React.ReactNode; text: string; classN
     Shipped: { icon: <Truck className="h-4 w-4" />, text: 'Shipped', className: 'bg-purple-100 text-purple-800' },
     Cancelled: { icon: <XCircle className="h-4 w-4" />, text: 'Cancelled', className: 'bg-red-100 text-red-800' },
 };
+
+function StarRating({ rating, reviewCount }: { rating: number, reviewCount: number }) {
+    if (reviewCount === 0) {
+        return <span className="text-xs text-muted-foreground">No reviews yet</span>
+    }
+    return (
+        <div className="flex items-center gap-1">
+            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+            <span className="font-bold text-sm">{rating.toFixed(1)}</span>
+            <span className="text-xs text-muted-foreground">({reviewCount})</span>
+        </div>
+    )
+}
 
 export function ProductCard({ product }: { product: Product }) {
   const timeLimitDate = product.timeLimit instanceof Timestamp ? product.timeLimit.toDate() : new Date(product.timeLimit);
@@ -59,6 +73,7 @@ export function ProductCard({ product }: { product: Product }) {
                 <CardTitle className="font-headline text-2xl">{product.name}</CardTitle>
                 <CardDescription>by {product.supplierName}</CardDescription>
             </div>
+             <StarRating rating={product.averageRating || 0} reviewCount={product.reviewCount || 0} />
         </div>
       </CardHeader>
       <CardContent className="flex-grow space-y-4">
