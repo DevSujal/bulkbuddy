@@ -10,16 +10,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn, Truck, XCircle, Edit } from 'lucide-react';
+import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn, Truck, XCircle, Edit, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
-import { addContribution, getProductById, updateProductStatus } from '@/lib/data';
+import { addContribution, getProductById, updateProductStatus, deleteProduct } from '@/lib/data';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
@@ -36,10 +47,12 @@ const statusInfo: { [key: string]: { icon: React.ReactNode; text: string; classN
     Cancelled: { icon: <XCircle className="h-4 w-4" />, text: 'Cancelled', className: 'bg-red-100 text-red-800' },
 };
 
-function SupplierStatusManager({ product, onStatusChange }: { product: Product; onStatusChange: (newStatus: ProductStatus) => void; }) {
+function SupplierActions({ product, onStatusChange }: { product: Product; onStatusChange: (newStatus: ProductStatus) => void; }) {
     const [selectedStatus, setSelectedStatus] = useState<ProductStatus>(product.status);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { toast } = useToast();
+    const router = useRouter();
 
     const handleStatusUpdate = async () => {
         setIsUpdating(true);
@@ -60,14 +73,34 @@ function SupplierStatusManager({ product, onStatusChange }: { product: Product; 
             setIsUpdating(false);
         }
     };
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await deleteProduct(product.id);
+            toast({
+                title: 'Listing Deleted',
+                description: `The listing for "${product.name}" has been removed.`,
+            });
+            router.push('/dashboard');
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to delete listing. Please try again.',
+                variant: 'destructive',
+            });
+            setIsDeleting(false);
+        }
+    }
     
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-headline"><Edit className="h-5 w-5"/> Manage Order Status</CardTitle>
-                <CardDescription>Update the status for all participating vendors.</CardDescription>
+                <CardTitle className="flex items-center gap-2 font-headline"><Edit className="h-5 w-5"/> Manage Listing</CardTitle>
+                <CardDescription>Update the status or delete this listing.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <Label>Order Status</Label>
                  <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as ProductStatus)}>
                     <SelectTrigger>
                         <SelectValue placeholder="Change status..." />
@@ -82,6 +115,29 @@ function SupplierStatusManager({ product, onStatusChange }: { product: Product; 
                  <Button className="w-full" onClick={handleStatusUpdate} disabled={isUpdating || selectedStatus === product.status}>
                     {isUpdating ? 'Updating...' : 'Save Status'}
                 </Button>
+                <Separator />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                        <Trash2 className="mr-2 h-4 w-4"/>
+                        {isDeleting ? 'Deleting...' : 'Delete Listing'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete this
+                        product listing and all associated data.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
             </CardContent>
         </Card>
     )
@@ -180,7 +236,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             <AlertTitle>Order Shipped!</AlertTitle>
             <AlertDescription>
               This order has been shipped by the supplier.
-            </AlertDescription>
+            </Aler tDescription>
           </Alert>
         );
       }
@@ -212,7 +268,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>This is your listing</AlertTitle>
                 <AlertDescription>
-                   You can manage this order's status below.
+                   You can manage this listing below.
                 </AlertDescription>
             </Alert>
         );
@@ -267,6 +323,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
                 alt={product.name}
                 fill
                 className="object-cover"
+                data-ai-hint="product image"
             />
            </div>
           <CardHeader>
@@ -345,7 +402,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             {renderJoinCardContent()}
           </CardContent>
         </Card>
-        {isSupplier && <SupplierStatusManager product={product} onStatusChange={handleStatusChange} />}
+        {isSupplier && <SupplierActions product={product} onStatusChange={handleStatusChange} />}
       </div>
     </div>
   );

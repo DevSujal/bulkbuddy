@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp, where, query } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp, where, query, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Product, VendorContribution, User, ProductStatus } from './types';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
@@ -63,6 +63,11 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
         ...newProductData
     };
 };
+
+export const deleteProduct = async (productId: string): Promise<void> => {
+    const productRef = doc(db, 'products', productId);
+    await deleteDoc(productRef);
+}
 
 export const addContribution = async (productId: string, contribution: VendorContribution): Promise<void> => {
     const productRef = doc(db, 'products', productId);

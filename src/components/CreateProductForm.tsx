@@ -63,8 +63,8 @@ export function CreateProductForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      unitPrice: undefined,
-      minBulkQuantity: undefined,
+      unitPrice: 0,
+      minBulkQuantity: 0,
       location: "",
       otherCategory: "",
     },
