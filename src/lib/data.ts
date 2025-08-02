@@ -1,6 +1,6 @@
-import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp, where, query } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Product, VendorContribution } from './types';
+import type { Product, VendorContribution, User } from './types';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { generateProductDescription } from '@/ai/flows/generate-product-description-flow';
 
@@ -10,8 +10,8 @@ const toProduct = (doc: any): Product => {
     return {
         id: doc.id,
         ...data,
-        // Convert Firestore Timestamp to JS Date
-        timeLimit: data.timeLimit,
+        // Convert Firestore Timestamp to JS Date if it exists
+        timeLimit: data.timeLimit instanceof Timestamp ? data.timeLimit.toDate().toISOString() : data.timeLimit,
     } as Product;
 };
 
@@ -26,13 +26,18 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-        return toProduct(docSnap);
+        const productData = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...productData,
+            timeLimit: (productData.timeLimit as Timestamp),
+        } as Product;
     } else {
         return undefined;
     }
 };
 
-export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions' | 'description' | 'imageUrl'>): Promise<Product> => {
+export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions' | 'description' | 'imageUrl' | 'supplierId'>, user: User): Promise<Product> => {
     
     const [imageUrl, description] = await Promise.all([
         generateProductImage({productName: product.name}),
@@ -41,6 +46,8 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
 
     const docRef = await addDoc(collection(db, 'products'), {
         ...product,
+        supplierId: user.uid,
+        supplierName: user.name,
         timeLimit: Timestamp.fromDate(product.timeLimit as any), // Convert JS Date to Firestore Timestamp
         currentQuantity: 0,
         contributions: [],
@@ -51,6 +58,8 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
     return {
         ...product,
         id: docRef.id,
+        supplierId: user.uid,
+        supplierName: user.name,
         currentQuantity: 0,
         contributions: [],
         imageUrl: imageUrl,
@@ -73,4 +82,23 @@ export const addContribution = async (productId: string, contribution: VendorCon
         contributions: arrayUnion(contribution),
         currentQuantity: newQuantity,
     });
+};
+
+export const getProductsBySupplier = async (supplierId: string): Promise<Product[]> => {
+    const q = query(collection(db, 'products'), where('supplierId', '==', supplierId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(toProduct);
+};
+
+export const getProductsByVendorContribution = async (vendorId: string): Promise<Product[]> => {
+    const q = query(collection(db, 'products'), where('contributions', 'array-contains', { vendorId: vendorId }));
+    
+    const querySnapshot = await getDocs(collection(db, 'products'));
+    const allProducts = querySnapshot.docs.map(toProduct);
+    
+    const contributedProducts = allProducts.filter(p => 
+        p.contributions.some(c => c.vendorId === vendorId)
+    );
+
+    return contributedProducts;
 };

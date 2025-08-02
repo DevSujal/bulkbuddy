@@ -86,9 +86,8 @@ export function CreateProductForm() {
           minBulkQuantity: values.minBulkQuantity,
           timeLimit: values.timeLimit,
           location: values.location,
-          supplierName: user.name, // Use logged in user's name
       }
-      const newProduct = await addProduct(newProductData);
+      const newProduct = await addProduct(newProductData, user);
       toast({
         title: "Success!",
         description: "Your product listing has been created.",
