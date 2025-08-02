@@ -1,16 +1,48 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Products can be read by anyone, but only authenticated users can create, update, or delete them.
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // User documents can only be read or written by the user themselves.
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection rules
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Anyone can view a user's public profile
+      allow get: if true;
+      // Users can only create their own profile
+      allow create: if isOwner(userId);
+      // Users can only update their own profile data
+      allow update: if isOwner(userId);
+    }
+
+    // Products collection rules
+    match /products/{productId} {
+      // Anyone can see the list of products
+      allow list, get: if true;
+
+      // Any signed-in user can create a new product listing
+      allow create: if isSignedIn();
+
+      // Only the supplier who created the product can update it or delete it
+      allow update, delete: if isSignedIn() && isOwner(resource.data.supplierId);
+
+      // Reviews subcollection rules
+      match /reviews/{reviewId} {
+        // Anyone can read reviews
+        allow get, list: if true;
+        // Any signed-in user can create a review
+        allow create: if isSignedIn();
+        // Nobody can update or delete reviews for now to maintain integrity
+        allow update, delete: if false;
+      }
     }
   }
 }
