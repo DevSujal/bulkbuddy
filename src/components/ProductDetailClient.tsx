@@ -33,6 +33,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Textarea } from './ui/textarea';
+import { Timestamp } from 'firebase/firestore';
 
 
 const categoryIcons: { [key: string]: React.ReactNode } = {
@@ -228,7 +229,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
   const { user } = useAuth();
   const router = useRouter();
 
-  const timeLimitDate = new Date(product.timeLimit);
+  const timeLimitDate = new Date(product.timeLimit as string);
   
   const hasContributed = user ? product.contributions.some(c => c.vendorId === user.uid) : false;
   const hasReviewed = user ? product.reviews.some(r => r.vendorId === user.uid) : false;
@@ -274,10 +275,12 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             if(updatedProductData) {
                 const updatedProduct: Product = {
                     ...updatedProductData,
-                    timeLimit: (updatedProductData.timeLimit as any).toDate().toISOString(),
+                    timeLimit: updatedProductData.timeLimit instanceof Timestamp 
+                        ? updatedProductData.timeLimit.toDate().toISOString()
+                        : updatedProductData.timeLimit,
                     reviews: updatedProductData.reviews.map(review => ({
                         ...review,
-                        createdAt: review.createdAt instanceof (global as any).firebase.firestore.Timestamp ? review.createdAt.toDate().toISOString() : review.createdAt
+                        createdAt: review.createdAt instanceof Timestamp ? review.createdAt.toDate().toISOString() : review.createdAt
                     })) as any,
                 };
                 setProduct(updatedProduct);
@@ -290,6 +293,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             });
             router.refresh();
         } catch (error) {
+            console.error(error);
             toast({ title: 'Error', description: 'Failed to join order. Please try again.', variant: 'destructive' });
         }
     });
