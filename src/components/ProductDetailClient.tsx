@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Product, ProductStatus, VendorContribution } from '@/lib/types';
@@ -236,7 +237,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
             <AlertTitle>Order Shipped!</AlertTitle>
             <AlertDescription>
               This order has been shipped by the supplier.
-            </Aler tDescription>
+            </AlertDescription>
           </Alert>
         );
       }
