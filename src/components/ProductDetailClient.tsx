@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Tag, Users, Locate, Timer, CheckCircle2, User, Package, Sprout, Carrot, Droplets, Beef, AlertTriangle, LogIn, Truck, XCircle, Edit, Trash2, Star, MessageSquare } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -74,7 +74,7 @@ function ReviewForm({ product, onReviewAdded }: { product: Product, onReviewAdde
                 comment,
             };
             await addReview(product.id, product.supplierId, newReviewData);
-            onReviewAdded({ ...newReviewData, id: 'temp', createdAt: new Date() } as any);
+            onReviewAdded({ ...newReviewData, id: 'temp', createdAt: new Date().toISOString() } as any);
             toast({ title: 'Success', description: 'Your review has been submitted.' });
             setRating(0);
             setComment('');
@@ -275,6 +275,10 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
                 const updatedProduct: Product = {
                     ...updatedProductData,
                     timeLimit: (updatedProductData.timeLimit as any).toDate().toISOString(),
+                    reviews: updatedProductData.reviews.map(review => ({
+                        ...review,
+                        createdAt: review.createdAt instanceof (global as any).firebase.firestore.Timestamp ? review.createdAt.toDate().toISOString() : review.createdAt
+                    })) as any,
                 };
                 setProduct(updatedProduct);
             }
@@ -473,7 +477,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
                 )}
                 {product.reviews.length > 0 ? (
                     <ul className="space-y-6">
-                       {product.reviews.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis()).map((review) => (
+                       {product.reviews.sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()).map((review) => (
                            <li key={review.id} className="flex gap-4">
                                <User className="h-8 w-8 text-muted-foreground mt-1" />
                                <div className="flex-1">
@@ -481,7 +485,7 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
                                         <div>
                                             <p className="font-semibold">{review.vendorName}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                {format(review.createdAt.toDate(), "PPP")}
+                                                {format(parseISO(review.createdAt as string), "PPP")}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-0.5">
