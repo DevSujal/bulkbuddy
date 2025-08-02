@@ -63,8 +63,8 @@ export function CreateProductForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      unitPrice: 0,
-      minBulkQuantity: 0,
+      unitPrice: undefined,
+      minBulkQuantity: undefined,
       location: "",
       otherCategory: "",
     },
@@ -87,13 +87,14 @@ export function CreateProductForm() {
           timeLimit: values.timeLimit,
           location: values.location,
       }
-      const newProduct = await addProduct(newProductData, user);
+      const newProduct = await addProduct(newProductData as any, user);
       toast({
         title: "Success!",
         description: "Your product listing has been created.",
       });
       router.push(`/products/${newProduct.id}`);
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",

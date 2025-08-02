@@ -1,6 +1,6 @@
 import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp, where, query } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Product, VendorContribution, User } from './types';
+import type { Product, VendorContribution, User, ProductStatus } from './types';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
 import { generateProductDescription } from '@/ai/flows/generate-product-description-flow';
 
@@ -37,14 +37,14 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
     }
 };
 
-export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions' | 'description' | 'imageUrl' | 'supplierId'>, user: User): Promise<Product> => {
+export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity' | 'contributions' | 'description' | 'imageUrl' | 'supplierId' | 'status'>, user: User): Promise<Product> => {
     
     const [imageUrl, description] = await Promise.all([
         generateProductImage({productName: product.name}),
         generateProductDescription({productName: product.name})
     ]);
 
-    const docRef = await addDoc(collection(db, 'products'), {
+    const newProductData = {
         ...product,
         supplierId: user.uid,
         supplierName: user.name,
@@ -53,17 +53,14 @@ export const addProduct = async (product: Omit<Product, 'id' | 'currentQuantity'
         contributions: [],
         imageUrl: imageUrl,
         description: description,
-    });
+        status: 'Active' as ProductStatus,
+    };
+
+    const docRef = await addDoc(collection(db, 'products'), newProductData);
 
     return {
-        ...product,
         id: docRef.id,
-        supplierId: user.uid,
-        supplierName: user.name,
-        currentQuantity: 0,
-        contributions: [],
-        imageUrl: imageUrl,
-        description: description,
+        ...newProductData
     };
 };
 
@@ -82,6 +79,11 @@ export const addContribution = async (productId: string, contribution: VendorCon
         contributions: arrayUnion(contribution),
         currentQuantity: newQuantity,
     });
+};
+
+export const updateProductStatus = async (productId: string, status: ProductStatus): Promise<void> => {
+    const productRef = doc(db, 'products', productId);
+    await updateDoc(productRef, { status });
 };
 
 export const getProductsBySupplier = async (supplierId: string): Promise<Product[]> => {

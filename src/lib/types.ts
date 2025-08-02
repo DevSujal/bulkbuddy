@@ -1,5 +1,7 @@
 import { Timestamp } from "firebase/firestore";
 
+export type ProductStatus = 'Active' | 'Fulfilled' | 'Shipped' | 'Cancelled';
+
 export interface VendorContribution {
   vendorId: string;
   vendorName: string;
@@ -20,6 +22,7 @@ export interface Product {
   location?: string;
   contributions: VendorContribution[];
   imageUrl?: string;
+  status: ProductStatus;
 }
 
 export interface User {
