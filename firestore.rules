@@ -3,46 +3,32 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Users collection rules
-    match /users/{userId} {
-      // Anyone can view a user's public profile
-      allow get: if true;
-      // Users can only create their own profile
-      allow create: if isOwner(userId);
-      // Users can only update their own profile data
-      allow update: if isOwner(userId);
-    }
-
-    // Products collection rules
+  
+    // Allow anyone to read products and reviews
     match /products/{productId} {
-      // Anyone can see the list of products
-      allow list, get: if true;
-
-      // Any signed-in user can create a new product listing
-      allow create: if isSignedIn();
-
-      // Only the supplier who created the product can update it or delete it
-      allow update, delete: if isSignedIn() && isOwner(resource.data.supplierId);
-
-      // Reviews subcollection rules
+      allow read: if true;
+      
+      // Allow authenticated users to create a product
+      allow create: if request.auth != null && request.resource.data.supplierId == request.auth.uid;
+        
+      // Only the supplier who created the product can update or delete it
+      allow update, delete: if request.auth != null && resource.data.supplierId == request.auth.uid;
+      
+      // Rules for the reviews subcollection
       match /reviews/{reviewId} {
-        // Anyone can read reviews
-        allow get, list: if true;
-        // Any signed-in user can create a review
-        allow create: if isSignedIn();
-        // Nobody can update or delete reviews for now to maintain integrity
-        allow update, delete: if false;
+        allow read: if true;
+        
+        // Allow a vendor to create a review if they are authenticated
+        allow create: if request.auth != null && request.resource.data.vendorId == request.auth.uid;
       }
+    }
+
+    // Allow users to read public user data, but only update their own.
+    match /users/{userId} {
+      allow read: if true;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      // Allow creation for new signups
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
