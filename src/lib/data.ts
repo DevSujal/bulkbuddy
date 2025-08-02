@@ -112,8 +112,6 @@ export const getProductsBySupplier = async (supplierId: string): Promise<Product
 };
 
 export const getProductsByVendorContribution = async (vendorId: string): Promise<Product[]> => {
-    const q = query(collection(db, 'products'), where('contributions', 'array-contains', { vendorId: vendorId }));
-    
     const querySnapshot = await getDocs(collection(db, 'products'));
     const allProducts = await Promise.all(querySnapshot.docs.map(doc => toProduct(doc)));
     
