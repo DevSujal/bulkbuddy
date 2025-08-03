@@ -1,47 +1,46 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Function to check if the requesting user is a listed contributor to a product
-    function isContributor(productId) {
-      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
-      return request.auth.uid in contributions.map(c => c.vendorId);
+    // Helper function to check if a user has contributed to a product
+    function hasContributed(productId) {
+      let productData = get(/databases/$(database)/documents/products/$(productId)).data;
+      return request.auth.uid in productData.contributions.map(c => c.vendorId);
     }
 
     match /users/{userId} {
-      // Anyone can read public user profiles (for supplier names, etc.)
-      allow read: if isAuthenticated();
-      // Users can create their own document during signup
-      allow create: if isOwner(userId);
-      // A user can only update their own document, and cannot change their role.
-      // Suppliers' ratings are updated by the addReview function.
-      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role ||
-                      (request.resource.data.keys().hasAll(['supplierRating']) && !isOwner(userId));
-
+      // Allow users to read their own profile
+      allow read: if request.auth.uid == userId;
+      // Allow users to update their own profile, but not their rating
+      allow update: if request.auth.uid == userId && !('supplierRating' in request.resource.data);
+      // Allow anyone to create their user document on signup
+      allow create: if request.auth.uid == userId;
     }
 
     match /products/{productId} {
-      // Allow reads for all authenticated users
-      allow read: if isAuthenticated();
-      // Allow creation for any authenticated user
-      allow create: if isAuthenticated();
-      // Only the supplier can update or delete their own product
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.supplierId;
+      // Anyone can read products
+      allow read: if true;
+      // Only authenticated users can create products
+      allow create: if request.auth.uid != null;
+      // Only the supplier who owns the product can update or delete it
+      allow update, delete: if resource.data.supplierId == request.auth.uid;
     }
-
+    
     match /products/{productId}/reviews/{reviewId} {
-        // Anyone can read reviews
-        allow read: if isAuthenticated();
-        // Allow a user to create a review IFF they are a contributor to the parent product
-        allow create: if isAuthenticated() && isContributor(productId);
+      // Anyone can read reviews
+      allow read: if true;
+      
+      // Allow a user to create a review IF:
+      // 1. They are authenticated.
+      // 2. They have contributed to this specific product.
+      // 3. The review data being submitted is valid.
+      allow create: if request.auth.uid != null &&
+                      hasContributed(productId) &&
+                      request.resource.data.vendorId == request.auth.uid &&
+                      request.resource.data.rating > 0 &&
+                      request.resource.data.rating <= 5;
     }
   }
 }
