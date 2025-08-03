@@ -1,68 +1,71 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isOwner(doc) {
-      return request.auth.uid == doc.data.supplierId;
+    // Helper Functions
+    function isAuth() {
+      return request.auth != null;
     }
 
-    function isNewContributor() {
-      // The user is adding themselves to the contributions array.
+    function isOwner(docId) {
+      return request.auth.uid == get(/databases/$(database)/documents/products/$(docId)).data.supplierId;
+    }
+    
+    // Check if the user is a contributor to the product
+    function isContributor(productId) {
+      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
+      return request.auth.uid in contributions.map(c => c.vendorId);
+    }
+    
+    // Check if the update is only for adding a contribution
+    function isAddingContribution(productData) {
       let newContributions = request.resource.data.contributions;
       let oldContributions = resource.data.contributions;
-      // Ensure only one contribution is added
-      if (newContributions.size() != oldContributions.size() + 1) {
-        return false;
-      }
-      // The new contribution must belong to the user making the request.
-      let addedContribution = newContributions[newContributions.size() - 1];
-      return addedContribution.vendorId == request.auth.uid;
+      let newQuantity = request.resource.data.currentQuantity;
+      let oldQuantity = resource.data.currentQuantity;
+      let contribution = newContributions[newContributions.size() - 1];
+
+      return newContributions.size() == oldContributions.size() + 1 &&
+             contribution.vendorId == request.auth.uid &&
+             newQuantity == oldQuantity + contribution.quantity &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']);
     }
 
-    function isUpdatingContribution() {
-      // Allow updates to currentQuantity and contributions array only
-      return request.resource.data.keys().hasOnly(['currentQuantity', 'contributions']) && isNewContributor();
-    }
-    
-    // Check if user is a contributor.
-    function isContributor(productId) {
-      let product = get(/databases/$(database)/documents/products/$(productId)).data;
-      return request.auth.uid in product.contributions.map(c => c.vendorId);
-    }
-    
-    // Check if the user is allowed to write a review.
-    function canWriteReview(productId) {
-        let product = get(/databases/$(database)/documents/products/$(productId)).data;
-        return isContributor(productId) && (product.status == 'Fulfilled' || product.status == 'Shipped');
-    }
-    
-    // USERS
-    match /users/{userId} {
-      allow read;
-      allow create: if request.auth.uid == userId;
-      // Allow user to update their own doc, or allow review logic to update supplier rating
-      allow update: if request.auth.uid == userId || 
-                    (getAfter(/databases/$(database)/documents/users/$(userId)).data.keys().hasOnly(['supplierRating']));
+    // Check if the update is only for the product rating
+    function isUpdatingRating(productData) {
+        return request.resource.data.diff(productData).affectedKeys().hasOnly(['averageRating', 'reviewCount']) &&
+               request.resource.data.reviewCount == productData.reviewCount + 1;
     }
 
-    // PRODUCTS
+
+    // Products Collection
     match /products/{productId} {
-      allow read;
-      allow create: if request.auth.uid != null;
+      allow read: if true;
+      allow create: if isAuth();
       
-      // Allow updates if user is the owner OR if they are a new contributor joining the order.
-      allow update: if isOwner(getAfter(/databases/$(database)/documents/products/$(productId))) || isUpdatingContribution();
+      allow update: if isAuth() && 
+                      (isOwner(productId) || isAddingContribution(resource.data));
 
-      allow delete: if isOwner(get(/databases/$(database)/documents/products/$(productId)));
+      allow delete: if isAuth() && isOwner(productId);
 
-      // REVIEWS Subcollection
+      // Reviews Subcollection
       match /reviews/{reviewId} {
-        allow read;
-        // User must be a contributor to a fulfilled/shipped order to write a review.
-        allow create: if canWriteReview(productId);
+        allow read: if true;
+        allow create: if isAuth() && isContributor(productId);
       }
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth.uid == userId;
+
+      // A user can update their own document.
+      // Another user can update a supplier's rating ONLY.
+      allow update: if isAuth() && (request.auth.uid == userId || 
+                    (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']) && resource.data.role == 'supplier'));
     }
   }
 }
