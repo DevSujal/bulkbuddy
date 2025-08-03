@@ -1,46 +1,68 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user has contributed to a product
-    function hasContributed(productId) {
-      let productData = get(/databases/$(database)/documents/products/$(productId)).data;
-      return request.auth.uid in productData.contributions.map(c => c.vendorId);
+    // Helper functions
+    function isOwner(doc) {
+      return request.auth.uid == doc.data.supplierId;
     }
 
-    match /users/{userId} {
-      // Allow users to read their own profile
-      allow read: if request.auth.uid == userId;
-      // Allow users to update their own profile, but not their rating
-      allow update: if request.auth.uid == userId && !('supplierRating' in request.resource.data);
-      // Allow anyone to create their user document on signup
-      allow create: if request.auth.uid == userId;
+    function isNewContributor() {
+      // The user is adding themselves to the contributions array.
+      let newContributions = request.resource.data.contributions;
+      let oldContributions = resource.data.contributions;
+      // Ensure only one contribution is added
+      if (newContributions.size() != oldContributions.size() + 1) {
+        return false;
+      }
+      // The new contribution must belong to the user making the request.
+      let addedContribution = newContributions[newContributions.size() - 1];
+      return addedContribution.vendorId == request.auth.uid;
     }
 
-    match /products/{productId} {
-      // Anyone can read products
-      allow read: if true;
-      // Only authenticated users can create products
-      allow create: if request.auth.uid != null;
-      // Only the supplier who owns the product can update or delete it
-      allow update, delete: if resource.data.supplierId == request.auth.uid;
+    function isUpdatingContribution() {
+      // Allow updates to currentQuantity and contributions array only
+      return request.resource.data.keys().hasOnly(['currentQuantity', 'contributions']) && isNewContributor();
     }
     
-    match /products/{productId}/reviews/{reviewId} {
-      // Anyone can read reviews
-      allow read: if true;
+    // Check if user is a contributor.
+    function isContributor(productId) {
+      let product = get(/databases/$(database)/documents/products/$(productId)).data;
+      return request.auth.uid in product.contributions.map(c => c.vendorId);
+    }
+    
+    // Check if the user is allowed to write a review.
+    function canWriteReview(productId) {
+        let product = get(/databases/$(database)/documents/products/$(productId)).data;
+        return isContributor(productId) && (product.status == 'Fulfilled' || product.status == 'Shipped');
+    }
+    
+    // USERS
+    match /users/{userId} {
+      allow read;
+      allow create: if request.auth.uid == userId;
+      // Allow user to update their own doc, or allow review logic to update supplier rating
+      allow update: if request.auth.uid == userId || 
+                    (getAfter(/databases/$(database)/documents/users/$(userId)).data.keys().hasOnly(['supplierRating']));
+    }
+
+    // PRODUCTS
+    match /products/{productId} {
+      allow read;
+      allow create: if request.auth.uid != null;
       
-      // Allow a user to create a review IF:
-      // 1. They are authenticated.
-      // 2. They have contributed to this specific product.
-      // 3. The review data being submitted is valid.
-      allow create: if request.auth.uid != null &&
-                      hasContributed(productId) &&
-                      request.resource.data.vendorId == request.auth.uid &&
-                      request.resource.data.rating > 0 &&
-                      request.resource.data.rating <= 5;
+      // Allow updates if user is the owner OR if they are a new contributor joining the order.
+      allow update: if isOwner(getAfter(/databases/$(database)/documents/products/$(productId))) || isUpdatingContribution();
+
+      allow delete: if isOwner(get(/databases/$(database)/documents/products/$(productId)));
+
+      // REVIEWS Subcollection
+      match /reviews/{reviewId} {
+        allow read;
+        // User must be a contributor to a fulfilled/shipped order to write a review.
+        allow create: if canWriteReview(productId);
+      }
     }
   }
 }
