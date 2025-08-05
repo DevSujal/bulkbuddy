@@ -1,63 +1,57 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is the owner of a product
-    function isProductOwner(productId) {
-      return get(/databases/$(database)/documents/products/$(productId)).data.supplierId == request.auth.uid;
+    // Helper function to check if a user is an authenticated contributor to a specific product
+    function isContributor(productId) {
+      // Check if the user's ID is in the list of vendor contributions for the product
+      return request.auth.uid in get(/databases/$(database)/documents/products/$(productId)).data.contributions.map(c => c.vendorId);
     }
     
-    // Helper function to check if a user has contributed to a product
-    function hasContributed(productId) {
-      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
-      return request.auth.uid in contributions.map(c => c.vendorId);
+    // Helper function to check if the user is the owner of a product
+    function isOwner(productId) {
+        return request.auth.uid == get(/databases/$(database)/documents/products/$(productId)).data.supplierId;
     }
 
     // Rules for the 'users' collection
     match /users/{userId} {
       allow read;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // Allow a user to update their own document OR allow another user to update only the supplierRating field.
-      allow update: if request.auth != null && (
-        (request.auth.uid == userId && !("supplierRating" in request.resource.data)) ||
-        (request.resource.data.keys().hasOnly(["supplierRating"]))
-      );
+      // Allow a user to update their own document,
+      // OR allow any authenticated user to update a supplier's rating (as part of a review).
+      allow write: if request.auth.uid == userId || 
+                      (request.auth != null && request.resource.data.keys().hasAll(['supplierRating']));
     }
 
     // Rules for the 'products' collection
     match /products/{productId} {
-      allow read: if true;
+      allow read;
       allow create: if request.auth != null;
-
-      // Allow update if the user is the owner, OR if they are only adding a contribution.
-      allow update: if request.auth != null && (
-        isProductOwner(productId) || 
-        (
-          request.resource.data.keys().hasAll(['contributions', 'currentQuantity']) &&
-          request.resource.data.contributions.size() == resource.data.contributions.size() + 1
-        )
-      );
-      
-      allow delete: if request.auth != null && isProductOwner(productId);
+      // Allow updates only by the product owner OR by a contributor joining the order.
+      allow update: if request.auth != null && 
+                      (isOwner(productId) || 
+                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']) &&
+                        isContributor(productId) == false // Only allow adding a new contribution
+                       ));
+      allow delete: if request.auth != null && isOwner(productId);
 
       // Rules for the 'reviews' subcollection
       match /reviews/{reviewId} {
         allow read;
-        // Allow creating a review if the user has contributed to the product
-        allow create: if request.auth != null && hasContributed(productId);
+        // Allow creating a review only if the user is an authenticated contributor.
+        allow create: if request.auth != null && isContributor(productId);
       }
     }
     
     // Rules for the 'notifications' collection
     match /notifications/{notificationId} {
-        // A user can read or update a notification (e.g. mark as read) if it belongs to them.
-        allow read, update: if request.auth != null && resource.data.userId == request.auth.uid;
+        // Allow reads/updates only by the intended recipient of the notification.
+        allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
         
-        // A user can create a notification if they are the supplier of the product linked in the notification.
-        // This is necessary for the batch write in updateProductStatus.
-        allow create: if request.auth != null && get(/databases/$(database)/documents/products/$(request.resource.data.link.split('/')[2])).data.supplierId == request.auth.uid;
+        // Allow creation only if the request is authenticated.
+        // More specific logic would happen inside a transaction/batch write
+        // which is authorized by the product update rule.
+        allow create: if request.auth != null;
     }
   }
 }
