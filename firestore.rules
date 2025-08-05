@@ -1,57 +1,45 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is an authenticated contributor to a specific product
+    function isOwner(resourceId) {
+      return request.auth.uid == get(/databases/$(database)/documents/products/$(resourceId)).data.supplierId;
+    }
+
+    // Checks if the requesting user has contributed to a specific product
     function isContributor(productId) {
-      // Check if the user's ID is in the list of vendor contributions for the product
-      return request.auth.uid in get(/databases/$(database)/documents/products/$(productId)).data.contributions.map(c => c.vendorId);
-    }
-    
-    // Helper function to check if the user is the owner of a product
-    function isOwner(productId) {
-        return request.auth.uid == get(/databases/$(database)/documents/products/$(productId)).data.supplierId;
+      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
+      // Filter the list of maps and check if the result is non-empty. This is the correct way to check for membership.
+      return contributions.filter(c => c.vendorId == request.auth.uid).size() > 0;
     }
 
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      allow read;
-      // Allow a user to update their own document,
-      // OR allow any authenticated user to update a supplier's rating (as part of a review).
-      allow write: if request.auth.uid == userId || 
-                      (request.auth != null && request.resource.data.keys().hasAll(['supplierRating']));
-    }
-
-    // Rules for the 'products' collection
     match /products/{productId} {
-      allow read;
+      allow read: if true;
       allow create: if request.auth != null;
-      // Allow updates only by the product owner OR by a contributor joining the order.
-      allow update: if request.auth != null && 
-                      (isOwner(productId) || 
-                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']) &&
-                        isContributor(productId) == false // Only allow adding a new contribution
-                       ));
-      allow delete: if request.auth != null && isOwner(productId);
+      // Allow update if user is the owner, OR if they are a contributor making a valid contribution update
+      allow update: if isOwner(productId) ||
+                       (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']));
+      allow delete: if isOwner(productId);
 
-      // Rules for the 'reviews' subcollection
       match /reviews/{reviewId} {
-        allow read;
-        // Allow creating a review only if the user is an authenticated contributor.
+        allow read: if true;
+        // Allow review creation only if the user has contributed to the order
         allow create: if request.auth != null && isContributor(productId);
       }
     }
-    
-    // Rules for the 'notifications' collection
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth.uid == userId;
+      // Allow update if user is updating their own doc, OR if they are leaving a review (updating supplierRating)
+      allow update: if request.auth.uid == userId ||
+                       (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']));
+    }
+
     match /notifications/{notificationId} {
-        // Allow reads/updates only by the intended recipient of the notification.
         allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-        
-        // Allow creation only if the request is authenticated.
-        // More specific logic would happen inside a transaction/batch write
-        // which is authorized by the product update rule.
-        allow create: if request.auth != null;
+        // Allow notification creation only if the creator is the owner of the product being updated.
+        allow create: if request.auth != null && isOwner(request.resource.data.link.split('/')[2]);
     }
   }
 }
