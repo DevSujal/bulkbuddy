@@ -1,5 +1,5 @@
 
-import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp, where, query, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, addDoc, updateDoc, arrayUnion, Timestamp, where, query, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Product, VendorContribution, User, ProductStatus, Review } from './types';
 import { generateProductImage } from '@/ai/flows/generate-product-image-flow';
@@ -101,8 +101,31 @@ export const addContribution = async (productId: string, contribution: VendorCon
 };
 
 export const updateProductStatus = async (productId: string, status: ProductStatus): Promise<void> => {
+    const batch = writeBatch(db);
     const productRef = doc(db, 'products', productId);
-    await updateDoc(productRef, { status });
+
+    // 1. Update the product status
+    batch.update(productRef, { status });
+
+    // 2. Send notifications to contributors
+    const productDoc = await getDoc(productRef);
+    const productData = productDoc.data() as Product;
+
+    if (productData && productData.contributions) {
+        productData.contributions.forEach(contribution => {
+            const notificationRef = doc(collection(db, 'notifications'));
+            batch.set(notificationRef, {
+                userId: contribution.vendorId,
+                message: `The status of your order for "${productData.name}" has been updated to ${status}.`,
+                link: `/products/${productId}`,
+                read: false,
+                createdAt: Timestamp.now()
+            });
+        });
+    }
+
+    // 3. Commit all writes
+    await batch.commit();
 };
 
 export const getProductsBySupplier = async (supplierId: string): Promise<Product[]> => {
@@ -163,3 +186,10 @@ export const addReview = async (productId: string, supplierId: string, reviewDat
     // 4. Commit all writes
     await batch.commit();
 }
+
+export const markNotificationAsRead = async (notificationId: string) => {
+    const notificationRef = doc(db, 'notifications', notificationId);
+    await updateDoc(notificationRef, {
+        read: true
+    });
+};

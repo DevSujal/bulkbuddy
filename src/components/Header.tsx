@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -13,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Notifications } from './Notifications';
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -33,6 +35,7 @@ export function Header() {
           <nav className="flex items-center gap-4">
             {user ? (
               <>
+                <Notifications />
                 {user.role === 'supplier' && (
                   <Link href="/products/create">
                     <Button>

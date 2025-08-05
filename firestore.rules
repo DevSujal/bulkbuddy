@@ -3,69 +3,52 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isAuth() {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
       return request.auth != null;
     }
-
-    function isOwner(docId) {
-      return request.auth.uid == get(/databases/$(database)/documents/products/$(docId)).data.supplierId;
+    
+    // Helper function to check if the user is the owner of a document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
     
-    // Check if the user is a contributor to the product
-    function isContributor(productId) {
-      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
-      return request.auth.uid in contributions.map(c => c.vendorId);
-    }
-    
-    // Check if the update is only for adding a contribution
-    function isAddingContribution(productData) {
-      let newContributions = request.resource.data.contributions;
-      let oldContributions = resource.data.contributions;
-      let newQuantity = request.resource.data.currentQuantity;
-      let oldQuantity = resource.data.currentQuantity;
-      let contribution = newContributions[newContributions.size() - 1];
-
-      return newContributions.size() == oldContributions.size() + 1 &&
-             contribution.vendorId == request.auth.uid &&
-             newQuantity == oldQuantity + contribution.quantity &&
-             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']);
+    // Helper function to check if a user has contributed to a product
+    function hasContributed(productId) {
+      let productData = get(/databases/$(database)/documents/products/$(productId)).data;
+      return request.auth.uid in productData.contributions.map(c => c.vendorId);
     }
 
-    // Check if the update is only for the product rating
-    function isUpdatingRating(productData) {
-        return request.resource.data.diff(productData).affectedKeys().hasOnly(['averageRating', 'reviewCount']) &&
-               request.resource.data.reviewCount == productData.reviewCount + 1;
-    }
-
-
-    // Products Collection
-    match /products/{productId} {
-      allow read: if true;
-      allow create: if isAuth();
-      
-      allow update: if isAuth() && 
-                      (isOwner(productId) || isAddingContribution(resource.data));
-
-      allow delete: if isAuth() && isOwner(productId);
-
-      // Reviews Subcollection
-      match /reviews/{reviewId} {
-        allow read: if true;
-        allow create: if isAuth() && isContributor(productId);
-      }
-    }
-
-    // Users Collection
     match /users/{userId} {
       allow read: if true;
-      allow create: if request.auth.uid == userId;
+      allow create: if isOwner(userId);
+      // Allow user to update their own profile, OR allow an update to a supplier's rating
+      // if the incoming write only touches the supplierRating field.
+      allow update: if isOwner(userId) || 
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']));
+    }
 
-      // A user can update their own document.
-      // Another user can update a supplier's rating ONLY.
-      allow update: if isAuth() && (request.auth.uid == userId || 
-                    (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']) && resource.data.role == 'supplier'));
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      // Allow update if user is the owner, OR if they are only adding their own contribution
+      allow update: if isAuthenticated() && 
+                      (isOwner(resource.data.supplierId) || 
+                      (request.resource.data.contributions.size() == resource.data.contributions.size() + 1 &&
+                       request.resource.data.contributions[-1].vendorId == request.auth.uid));
+
+      allow delete: if isAuthenticated() && isOwner(resource.data.supplierId);
+      
+      match /reviews/{reviewId} {
+        allow read: if true;
+        // Allow creating a review if the user has contributed to the product
+        allow create: if isAuthenticated() && hasContributed(productId);
+      }
+    }
+    
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
     }
   }
 }

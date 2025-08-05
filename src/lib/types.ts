@@ -15,7 +15,7 @@ export interface Review {
   vendorName: string;
   rating: number;
   comment?: string;
-  createdAt: Timestamp;
+  createdAt: Timestamp | string;
 }
 
 export interface Product {
@@ -47,4 +47,13 @@ export interface User {
     average: number;
     count: number;
   };
+}
+
+export interface Notification {
+    id: string;
+    userId: string;
+    message: string;
+    link: string;
+    read: boolean;
+    createdAt: Timestamp | string;
 }

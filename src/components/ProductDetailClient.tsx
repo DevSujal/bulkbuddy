@@ -79,8 +79,8 @@ function ReviewForm({ product, onReviewAdded }: { product: Product, onReviewAdde
             toast({ title: 'Success', description: 'Your review has been submitted.' });
             setRating(0);
             setComment('');
-        } catch (error) {
-            toast({ title: 'Error', description: 'Failed to submit review. Please try again.', variant: 'destructive' });
+        } catch (error:any) {
+            toast({ title: 'Error', description: error.message || "failed to submit review.", variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
