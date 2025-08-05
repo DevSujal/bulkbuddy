@@ -1,45 +1,50 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(resourceId) {
-      return request.auth.uid == get(/databases/$(database)/documents/products/$(resourceId)).data.supplierId;
+    // Helper Functions
+    function isOwner(resource) {
+      return request.auth.uid == resource.data.supplierId;
     }
-
-    // Checks if the requesting user has contributed to a specific product
     function isContributor(productId) {
       let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
-      // Filter the list of maps and check if the result is non-empty. This is the correct way to check for membership.
-      return contributions.filter(c => c.vendorId == request.auth.uid).size() > 0;
+      // Correct syntax for filter: list.filter(variable, predicate)
+      return contributions.filter(c, c.vendorId == request.auth.uid).size() > 0;
+    }
+    
+    // Authenticated users can read/write their own user doc.
+    // A user can also update a supplier's rating, but only the supplierRating field.
+    match /users/{userId} {
+      allow read;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId || 
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']));
+      allow delete: if false;
     }
 
     match /products/{productId} {
-      allow read: if true;
+      allow read;
       allow create: if request.auth != null;
-      // Allow update if user is the owner, OR if they are a contributor making a valid contribution update
-      allow update: if isOwner(productId) ||
-                       (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']));
-      allow delete: if isOwner(productId);
+      // Allow updates if user is owner, OR if they are only updating contribution data
+      allow update: if isOwner(resource) ||
+                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity', 'averageRating', 'reviewCount']));
+      allow delete: if isOwner(resource);
 
+      // Anyone can read reviews.
+      // Only a verified contributor can create a review for that product.
       match /reviews/{reviewId} {
-        allow read: if true;
-        // Allow review creation only if the user has contributed to the order
-        allow create: if request.auth != null && isContributor(productId);
+        allow read;
+        allow create: if isContributor(productId) && request.resource.data.vendorId == request.auth.uid;
       }
     }
 
-    match /users/{userId} {
-      allow read: if true;
-      allow create: if request.auth.uid == userId;
-      // Allow update if user is updating their own doc, OR if they are leaving a review (updating supplierRating)
-      allow update: if request.auth.uid == userId ||
-                       (request.auth != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']));
-    }
-
     match /notifications/{notificationId} {
-        allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-        // Allow notification creation only if the creator is the owner of the product being updated.
-        allow create: if request.auth != null && isOwner(request.resource.data.link.split('/')[2]);
+        allow read, update: if request.auth.uid == resource.data.userId;
+        // Allow notifications to be created only by the supplier of the product.
+        // We get the product associated with the notification and check its supplierId.
+        allow create: if get(/databases/$(database)/documents/products/$(request.resource.data.productId)).data.supplierId == request.auth.uid;
+        allow delete: if false;
     }
   }
 }
