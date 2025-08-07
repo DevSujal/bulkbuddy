@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { Product, ProductStatus, VendorContribution, Review } from '@/lib/types';
@@ -75,12 +76,18 @@ function ReviewForm({ product, onReviewAdded }: { product: Product, onReviewAdde
                 comment,
             };
             await addReview(product.id, product.supplierId, newReviewData);
-            onReviewAdded({ ...newReviewData, id: 'temp', createdAt: new Date().toISOString() } as any);
+            
+            const newReview = { ...newReviewData, id: 'temp', createdAt: new Date().toISOString() } as any
+            const updatedReviews = [...product.reviews, newReview];
+            const newReviewCount = updatedReviews.length;
+            const newAverageRating = updatedReviews.reduce((sum, r) => sum + r.rating, 0) / newReviewCount;
+
+            onReviewAdded(newReview, newReviewCount, newAverageRating);
             toast({ title: 'Success', description: 'Your review has been submitted.' });
             setRating(0);
             setComment('');
         } catch (error:any) {
-            toast({ title: 'Error', description: error.message || "failed to submit review.", variant: 'destructive' });
+            toast({ title: 'Error', description: error.message || "failed to submit review. Please try again.", variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
@@ -304,14 +311,11 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
     router.refresh();
   };
 
-   const handleReviewAdded = (newReview: Review) => {
+   const handleReviewAdded = (newReview: Review, newReviewCount: number, newAverageRating: number) => {
         setProduct(prev => {
-            const updatedReviews = [...prev.reviews, newReview];
-            const newReviewCount = updatedReviews.length;
-            const newAverageRating = updatedReviews.reduce((sum, r) => sum + r.rating, 0) / newReviewCount;
             return {
                 ...prev,
-                reviews: updatedReviews,
+                reviews: [...prev.reviews, newReview],
                 reviewCount: newReviewCount,
                 averageRating: newAverageRating
             };

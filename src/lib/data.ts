@@ -101,16 +101,19 @@ export const addContribution = async (productId: string, contribution: VendorCon
 };
 
 export const updateProductStatus = async (productId: string, status: ProductStatus): Promise<void> => {
-    const batch = writeBatch(db);
     const productRef = doc(db, 'products', productId);
+    const productDoc = await getDoc(productRef); // First, get the product data
+    if (!productDoc.exists()) {
+        throw new Error("Product not found");
+    }
+    const productData = productDoc.data() as Product;
+
+    const batch = writeBatch(db);
 
     // 1. Update the product status
     batch.update(productRef, { status });
 
     // 2. Send notifications to contributors
-    const productDoc = await getDoc(productRef);
-    const productData = productDoc.data() as Product;
-
     if (productData && productData.contributions) {
         productData.contributions.forEach(contribution => {
             const notificationRef = doc(collection(db, 'notifications'));
@@ -146,6 +149,20 @@ export const getProductsByVendorContribution = async (vendorId: string): Promise
 };
 
 export const addReview = async (productId: string, supplierId: string, reviewData: Omit<Review, 'id' | 'createdAt'>) => {
+    const productRef = doc(db, 'products', productId);
+    const productDoc = await getDoc(productRef);
+    if (!productDoc.exists()) {
+        throw new Error("Product not found");
+    }
+    const productData = productDoc.data() as Product;
+    
+    const supplierRef = doc(db, 'users', supplierId);
+    const supplierDoc = await getDoc(supplierRef);
+    if (!supplierDoc.exists()) {
+        throw new Error("Supplier not found");
+    }
+    const supplierData = supplierDoc.data() as User;
+
     const batch = writeBatch(db);
 
     // 1. Add review to subcollection
@@ -153,10 +170,6 @@ export const addReview = async (productId: string, supplierId: string, reviewDat
     batch.set(reviewRef, { ...reviewData, createdAt: Timestamp.now() });
 
     // 2. Update product's average rating
-    const productRef = doc(db, 'products', productId);
-    const productDoc = await getDoc(productRef);
-    const productData = productDoc.data() as Product;
-
     const newReviewCount = (productData.reviewCount || 0) + 1;
     const oldRatingTotal = (productData.averageRating || 0) * (productData.reviewCount || 0);
     const newAverageRating = (oldRatingTotal + reviewData.rating) / newReviewCount;
@@ -167,10 +180,6 @@ export const addReview = async (productId: string, supplierId: string, reviewDat
     });
 
     // 3. Update supplier's overall rating
-    const supplierRef = doc(db, 'users', supplierId);
-    const supplierDoc = await getDoc(supplierRef);
-    const supplierData = supplierDoc.data() as User;
-    
     const currentSupplierRating = supplierData.supplierRating || { count: 0, average: 0 };
     const newSupplierReviewCount = currentSupplierRating.count + 1;
     const oldSupplierRatingTotal = currentSupplierRating.average * currentSupplierRating.count;
