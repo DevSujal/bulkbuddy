@@ -1,4 +1,4 @@
-
+export const dynamic = 'force-dynamic'; // Add this at the top
 import { ProductCard } from '@/components/ProductCard';
 import { getProducts } from '@/lib/data';
 import type { Product } from '@/lib/types';

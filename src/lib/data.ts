@@ -118,6 +118,7 @@ export const updateProductStatus = async (productId: string, status: ProductStat
         productData.contributions.forEach(contribution => {
             const notificationRef = doc(collection(db, 'notifications'));
             batch.set(notificationRef, {
+                productId : productId,
                 userId: contribution.vendorId,
                 supplierId: productData.supplierId, // Add supplierId to the notification
                 message: `The status of your order for "${productData.name}" has been updated to ${status}.`,

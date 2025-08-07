@@ -148,10 +148,10 @@ function SupplierActions({ product, onStatusChange }: { product: Product; onStat
                 title: 'Status Updated',
                 description: `Order status changed to "${selectedStatus}".`,
             });
-        } catch (error) {
+        } catch (error:any) {
             toast({
                 title: 'Error',
-                description: 'Failed to update status. Please try again.',
+                description: error?.message,
                 variant: 'destructive',
             });
         } finally {
@@ -307,8 +307,8 @@ export function ProductDetailClient({ product: initialProduct }: { product: Prod
   };
 
   const handleStatusChange = (newStatus: ProductStatus) => {
-    setProduct(prev => ({ ...prev, status: newStatus }));
-    router.refresh();
+      setProduct(prev => ({ ...prev, status: newStatus }));
+      router.refresh();
   };
 
    const handleReviewAdded = (newReview: Review, newReviewCount: number, newAverageRating: number) => {

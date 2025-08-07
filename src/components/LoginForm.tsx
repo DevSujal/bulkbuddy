@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -18,14 +19,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { useState } from "react";
+import type { UseFormReturn } from "react-hook-form";
 
+// ✅ Schema
 const formSchema = z.object({
   email: z.string().email("Invalid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
 });
 
-export function LoginForm() {
+// ✅ Props
+type LoginFormProps = {
+  onFormReady?: (form: UseFormReturn<z.infer<typeof formSchema>>) => void;
+};
+
+export function LoginForm({ onFormReady }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -39,6 +46,14 @@ export function LoginForm() {
     },
   });
 
+  // ✅ Pass form instance to parent
+  useEffect(() => {
+    if (onFormReady) {
+      onFormReady(form);
+    }
+  }, [form, onFormReady]);
+
+  // ✅ Submit Handler
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
@@ -47,7 +62,7 @@ export function LoginForm() {
         title: "Login Successful!",
         description: "Welcome back!",
       });
-      router.push('/');
+      router.push("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -55,7 +70,7 @@ export function LoginForm() {
         variant: "destructive",
       });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -64,6 +79,7 @@ export function LoginForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6 pt-6">
+            {/* Email Field */}
             <FormField
               control={form.control}
               name="email"
@@ -77,6 +93,8 @@ export function LoginForm() {
                 </FormItem>
               )}
             />
+
+            {/* Password Field */}
             <FormField
               control={form.control}
               name="password"
@@ -91,15 +109,16 @@ export function LoginForm() {
               )}
             />
           </CardContent>
+
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Logging in..." : "Log In"}
             </Button>
             <p className="text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <Link href="/signup" className="text-primary hover:underline">
-                    Sign up
-                </Link>
+              Don't have an account?{" "}
+              <Link href="/signup" className="text-primary hover:underline">
+                Sign up
+              </Link>
             </p>
           </CardFooter>
         </form>
