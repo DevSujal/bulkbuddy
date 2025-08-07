@@ -3,58 +3,43 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isOwner(resource) {
-      return request.auth.uid == resource.data.supplierId;
-    }
-
-    function isVendorContributor(productId) {
-      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
-      // Use filter which is supported, but map is not. The check needs to be different.
-      // This checks if the list of contributions where the vendorId matches the user's ID has a size greater than 0.
-      return contributions.filter(c, c.vendorId == request.auth.uid).size() > 0;
-    }
     
-    function isProductOwnerForNotification(productId) {
-        return request.auth.uid == get(/databases/$(database)/documents/products/$(productId)).data.supplierId;
+    // Helper Functions
+    function isOwner(productId) {
+      return request.auth.uid == get(/databases/$(database)/documents/products/$(productId)).data.supplierId;
     }
 
+    function hasContributed(productId) {
+      let contributions = get(/databases/$(database)/documents/products/$(productId)).data.contributions;
+      return request.auth.uid in contributions.map(c => c.vendorId);
+    }
+
+    // Rules for Collections
     match /users/{userId} {
-      allow read;
-      // A user can create their own account, or an admin can. For now, only self-creation.
+      allow read: if true;
       allow create: if request.auth.uid == userId;
-      // A user can update their own profile. A vendor can also update a supplier's rating.
       allow update: if request.auth.uid == userId || 
-                      (request.resource.data.keys().hasAll(['supplierRating']) && request.resource.data.supplierRating.keys().hasAll(['average', 'count']));
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supplierRating']));
     }
 
     match /products/{productId} {
-      allow read;
-      // Only authenticated users can create a product
-      allow create: if request.auth != null;
-      
-      // An update is allowed if you're the owner (for status changes),
-      // or if you're only adding yourself to the contributions list.
-      allow update: if request.auth != null && 
-                      (isOwner(resource) || 
-                       (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentQuantity']) &&
-                        request.resource.data.contributions.size() == resource.data.contributions.size() + 1 &&
-                        request.auth.uid in request.resource.data.contributions.map(c => c.vendorId)));
-                        
-      allow delete: if request.auth != null && isOwner(resource);
+      allow read: if true;
+      allow create: if request.auth.uid != null;
+      allow update: if isOwner(productId) || 
+        (request.resource.data.contributions.size() == resource.data.contributions.size() + 1 &&
+         request.resource.data.contributions[resource.data.contributions.size()].vendorId == request.auth.uid);
+      allow delete: if isOwner(productId);
 
       match /reviews/{reviewId} {
-        allow read;
-        // A user can create a review if they have contributed to the product.
-        allow create: if request.auth != null && isVendorContributor(productId);
+        allow read: if true;
+        allow create: if hasContributed(productId);
       }
     }
 
     match /notifications/{notificationId} {
-        // A user can read/update their own notifications
-        allow read, update: if request.auth.uid == resource.data.userId;
-        // A notification can be created if the creator is the owner of the product it links to.
-        allow create: if request.auth != null && isProductOwnerForNotification(request.resource.data.link.split('/')[2]);
+      allow read, update: if request.auth.uid == resource.data.userId;
+      // Allow creation if the user is the supplier referenced in the notification
+      allow create: if request.auth.uid == request.resource.data.supplierId;
     }
   }
 }

@@ -102,7 +102,7 @@ export const addContribution = async (productId: string, contribution: VendorCon
 
 export const updateProductStatus = async (productId: string, status: ProductStatus): Promise<void> => {
     const productRef = doc(db, 'products', productId);
-    const productDoc = await getDoc(productRef); // First, get the product data
+    const productDoc = await getDoc(productRef);
     if (!productDoc.exists()) {
         throw new Error("Product not found");
     }
@@ -119,6 +119,7 @@ export const updateProductStatus = async (productId: string, status: ProductStat
             const notificationRef = doc(collection(db, 'notifications'));
             batch.set(notificationRef, {
                 userId: contribution.vendorId,
+                supplierId: productData.supplierId, // Add supplierId to the notification
                 message: `The status of your order for "${productData.name}" has been updated to ${status}.`,
                 link: `/products/${productId}`,
                 read: false,
