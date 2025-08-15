@@ -2,7 +2,7 @@
 
 BulkBuddy is a web application designed to connect raw material suppliers with street vendors and restaurants. It allows suppliers to list products for bulk purchase, and vendors to join together to meet minimum order quantities, unlocking better prices and reducing waste.
 
-![BulkBuddy Screenshot](https://placehold.co/800x450.png?text=BulkBuddy+App)
+![BulkBuddy Screenshot](image.png)
 *A placeholder image of the application interface.*
 
 ## ✨ Features
