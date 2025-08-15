@@ -25,7 +25,7 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="p-2 bg-primary rounded-lg group-hover:scale-110 transition-transform">
-                <ShoppingBasket className="h-6 w-6 text-primary-foreground" />
+              <ShoppingBasket className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold font-headline text-foreground tracking-tight">
               BulkBuddy
@@ -38,16 +38,16 @@ export function Header() {
                 <Notifications />
                 {user.role === 'supplier' && (
                   <Link href="/products/create">
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4"/>
-                        Create Listing
+                    <Button className='text-center flex justify-center items-center'>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      {window.innerWidth > 500 && "Create Listing"}
                     </Button>
                   </Link>
                 )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                       <Avatar className="h-9 w-9">
+                      <Avatar className="h-9 w-9">
                         <AvatarImage src={`https://i.pravatar.cc/150?u=${user.name}`} alt={user.name} />
                         <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
@@ -64,10 +64,10 @@ export function Header() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <Link href="/dashboard">
-                        <DropdownMenuItem>
-                            <LayoutDashboard className="mr-2 h-4 w-4" />
-                            <span>Dashboard</span>
-                        </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        <span>Dashboard</span>
+                      </DropdownMenuItem>
                     </Link>
                     <DropdownMenuItem onClick={logout}>
                       <LogOut className="mr-2 h-4 w-4" />
